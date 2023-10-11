@@ -10,6 +10,16 @@
     <title>
         Better Graph
     </title>
+    <style>
+         .tooltip {
+        position: absolute;
+        background-color: white;
+        border: 1px solid black;
+        padding: 5px;
+        opacity: 0.8;
+        z-index: 10;  /* Ensuring the tooltip is on top */
+    }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 </head>
 
@@ -17,6 +27,9 @@
     <div id="my_dataviz">
 
 
+    </div>
+    <div id="hover_info">
+        
     </div>
     <script type="module">
         //Change this to any sale history data obtained from https://csfloat.com/api/v1/history/[name]/graph
@@ -46,7 +59,7 @@
                 countInRange += data[i].count;
 
                 c++;
-                if (c == 20 || i == data.length - 1) {
+                if (c == resolution || i == data.length - 1) {
                     let avgPrice = totalPrice / countInRange;
                     clean.push({ "day": range_end, "range_start": data[i].day, "avg_price": avgPrice, "count": countInRange });
                     countInRange = 0;
@@ -100,7 +113,25 @@
                 .x(d => x(new Date(d.day)))
                 .y(d => y(d.avg_price))
             );
+        // Append a tooltip div
+        const tooltip = d3.select("#tooltip");
 
+        // Add dots on the line
+        const dots = svg.append("g")
+            .selectAll("dot")
+            .data(data)
+            .enter().append("circle")
+            .attr("cx", d => x(new Date(d.day)))
+            .attr("cy", d => y(d.avg_price))
+            .attr("r", 5)
+            .attr("fill", "black")
+            .on("mouseover", function (event, d) {
+                console.log("Mouseover", d)
+                document.getElementById("hover_info").innerText=`${d.range_start.substr(0,10)}   to   ${d.day.substr(0,10)}\nAverage Price: $${d.avg_price.toFixed(2)}\n#Sales: ${d.count}`
+            })
+            .on("mouseout", function () {
+                tooltip.style("opacity", 0);
+            });
     </script>
 </body>
 
