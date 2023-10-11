@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script>
+        document.onload = function () {
+
+        }
+    </script>
+    <title>
+        Better Graph
+    </title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+</head>
+
+<body>
+    <div id="my_dataviz">
+
+
+    </div>
+    <script type="module">
+        //Change this to any sale history data obtained from https://csfloat.com/api/v1/history/[name]/graph
+        const PATH = "./saleHistory_Ak47Slate.json";
+        const clamp = (val, min, max) => Math.min(Math.max(val, min), max)
+        /**
+         
+        data: [{date,avgprice,count},,,]
+        outlierBounds = [LowerQuantile,UpperQuantile] eg [0.25,.075] to cut off data outside the 1st innerquartile range
+        resolution: the ammount of samples to average together. Cleaned dataset will have data.length/resolution datapoints.
+        */
+        function cleandata(data,outlierBounds,resolution) {
+            let prices = data.map(d => d.avg_price);
+            console.log(data);
+            console.log(prices);
+            let iqr = [d3.quantile(prices, outlierBounds[0]) / 100, d3.quantile(prices, outlierBounds[1]) / 100];
+            let c = 0;
+            let totalPrice = 0;
+            let countInRange = 0;
+            let range_end;
+            let clean = [];
+            for (let i = 0; i < data.length; i++) {
+                if (c == 0) {
+                    range_end = data[i].day;
+                }
+                totalPrice += clamp(data[i].avg_price / 100, iqr[0], iqr[1]) * data[i].count;
+                countInRange += data[i].count;
+
+                c++;
+                if (c == 20 || i == data.length - 1) {
+                    let avgPrice = totalPrice / countInRange;
+                    clean.push({ "day": range_end, "range_start": data[i].day, "avg_price": avgPrice, "count": countInRange });
+                    countInRange = 0;
+                    totalPrice = 0;
+                    c = 0;
+
+                }
+            }
+            return clean;
+        }
+
+        let data = await d3.json(PATH);
+
+        data = cleandata(data,[0.25,.75],15);
+        
+        const margin = { top: 10, right: 30, bottom: 30, left: 60 },
+            width = 460 - margin.left - margin.right,
+            height = 400 - margin.top - margin.bottom;
+
+        // Append the SVG object to the body of the page
+        const svg = d3.select("#my_dataviz")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform",
+                `translate(${margin.left}, ${margin.top})`);
+
+        // Add X axis
+        const x = d3.scaleUtc()
+            .domain([new Date(data[data.length - 1].day), new Date(data[0].day)])
+            .range([0, width]);
+        svg.append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(x));
+
+        // Add Y axis
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.avg_price)])
+            .range([height, 0]);
+        svg.append("g")
+            .call(d3.axisLeft(y));
+
+        // Add the line
+        svg.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "steelblue")
+            .attr("stroke-width", 1.5)
+            .attr("d", d3.line()
+                .x(d => x(new Date(d.day)))
+                .y(d => y(d.avg_price))
+            );
+
+    </script>
+</body>
+
+</html>
